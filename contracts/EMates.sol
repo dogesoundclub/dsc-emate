@@ -7,11 +7,7 @@ import "./interfaces/IERC1271.sol";
 import "./interfaces/IEMates.sol";
 import "./libraries/Signature.sol";
 
-contract EMates is
-    Ownable,
-    ERC721("DSC E-MATES | 4 DA NEXT LEVEL", "EMATES"),
-    IEMates
-{
+contract EMates is Ownable, ERC721("DSC E-MATES | 4 DA NEXT LEVEL", "EMATES"), IERC2981, IEMates {
     bytes32 private immutable _CACHED_DOMAIN_SEPARATOR;
     uint256 private immutable _CACHED_CHAIN_ID;
 
@@ -20,18 +16,21 @@ contract EMates is
     bytes32 private immutable _TYPE_HASH;
 
     // keccak256("Permit(address spender,uint256 tokenId,uint256 nonce,uint256 deadline)");
-    bytes32 public constant override PERMIT_TYPEHASH =
-        0x49ecf333e5b8c95c40fdafc95c1ad136e8914a8fb55e9dc8bb01eaa83a2df9ad;
+    bytes32 public constant PERMIT_TYPEHASH = 0x49ecf333e5b8c95c40fdafc95c1ad136e8914a8fb55e9dc8bb01eaa83a2df9ad;
 
     // keccak256("Permit(address owner,address spender,uint256 nonce,uint256 deadline)");
-    bytes32 public constant override PERMIT_ALL_TYPEHASH =
-        0xdaab21af31ece73a508939fedd476a5ee5129a5ed4bb091f3236ffb45394df62;
+    bytes32 public constant PERMIT_ALL_TYPEHASH = 0xdaab21af31ece73a508939fedd476a5ee5129a5ed4bb091f3236ffb45394df62;
 
-    mapping(uint256 => uint256) public override nonces;
-    mapping(address => uint256) public override noncesForAll;
+    mapping(uint256 => uint256) public nonces;
+    mapping(address => uint256) public noncesForAll;
 
     uint256 public totalSupply;
-    address public minter;
+    mapping(address => bool) public isMinter;
+
+    address public feeReceiver;
+    uint256 public fee; //out of 10000
+
+    string public contractURI;
 
     constructor() {
         _CACHED_CHAIN_ID = block.chainid;
@@ -40,23 +39,17 @@ contract EMates is
         _TYPE_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
         _CACHED_DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes("DSC E-MATES | 4 DA NEXT LEVEL")),
-                keccak256(bytes("1")),
-                block.chainid,
-                address(this)
-            )
+            abi.encode(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION, _CACHED_CHAIN_ID, address(this))
         );
 
-        minter = msg.sender;
+        isMinter[msg.sender] = true;
     }
 
     function _baseURI() internal pure override returns (string memory) {
         return "https://api.dogesound.club/emates/";
     }
 
-    function DOMAIN_SEPARATOR() public view override returns (bytes32) {
+    function DOMAIN_SEPARATOR() public view returns (bytes32) {
         if (block.chainid == _CACHED_CHAIN_ID) {
             return _CACHED_DOMAIN_SEPARATOR;
         } else {
@@ -71,7 +64,7 @@ contract EMates is
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external override {
+    ) external {
         require(block.timestamp <= deadline, "EMATES: Expired deadline");
         bytes32 _DOMAIN_SEPARATOR = DOMAIN_SEPARATOR();
 
@@ -79,10 +72,9 @@ contract EMates is
             abi.encodePacked(
                 "\x19\x01",
                 _DOMAIN_SEPARATOR,
-                keccak256(abi.encode(PERMIT_TYPEHASH, spender, id, nonces[id], deadline))
+                keccak256(abi.encode(PERMIT_TYPEHASH, spender, id, nonces[id]++, deadline))
             )
         );
-        nonces[id] += 1;
 
         address owner = ownerOf(id);
         require(spender != owner, "EMATES: Invalid spender");
@@ -107,7 +99,7 @@ contract EMates is
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external override {
+    ) external {
         require(block.timestamp <= deadline, "EMATES: Expired deadline");
         bytes32 _DOMAIN_SEPARATOR = DOMAIN_SEPARATOR();
 
@@ -115,10 +107,9 @@ contract EMates is
             abi.encodePacked(
                 "\x19\x01",
                 _DOMAIN_SEPARATOR,
-                keccak256(abi.encode(PERMIT_ALL_TYPEHASH, owner, spender, noncesForAll[owner], deadline))
+                keccak256(abi.encode(PERMIT_ALL_TYPEHASH, owner, spender, noncesForAll[owner]++, deadline))
             )
         );
-        noncesForAll[owner] += 1;
 
         if (Address.isContract(owner)) {
             require(
@@ -141,24 +132,46 @@ contract EMates is
         super._beforeTokenTransfer(from, to, tokenId);
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, IERC165)
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, IERC165) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
-    function setMinter(address _minter) external onlyOwner {
-        minter = _minter;
-        emit ChangeMinter(_minter);
+    function setMinter(address target, bool _isMinter) external onlyOwner {
+        require(isMinter[target] != _isMinter, "EMATES: Permission not changed");
+        isMinter[target] = _isMinter;
+        emit SetMinter(target, _isMinter);
     }
 
+    function setRoyaltyInfo(address _receiver, uint256 _fee) external onlyOwner {
+        require(_fee < 10000, "EMATES: Invalid Fee");
+        feeReceiver = _receiver;
+        fee = _fee;
+        emit SetRoyaltyInfo(_receiver, _fee);
+    }
+
+    function setContractURI(string calldata uri) external onlyOwner {
+        contractURI = uri;
+
+        emit SetContractURI(uri);
+    }
+
+    function royaltyInfo(uint256, uint256 _salePrice) external view returns (address receiver, uint256 royaltyAmount) {
+        return (feeReceiver, (_salePrice * fee) / 10000);
+    }
+    
     function mint(address to) external returns (uint256 id) {
-        require(msg.sender == minter);
+        require(isMinter[msg.sender], "EMATES: Forbidden");
         id = totalSupply;
         _mint(to, id);
         totalSupply += 1;
+    }
+
+    function mintBatch(uint256 limit) external {
+        require(isMinter[msg.sender], "EMATES: Forbidden");
+        uint256 id = totalSupply;
+        for (uint256 i = 0; i < limit - id; i++) {
+            _mint(msg.sender, id + i);
+        }
+        totalSupply = limit;
     }
 }
