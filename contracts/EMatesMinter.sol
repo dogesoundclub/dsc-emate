@@ -2,34 +2,40 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./EMates.sol";
-import "./interfaces/IEthereumMix.sol";
+import "./interfaces/IEMatesMinter.sol";
 
-contract EMatesMinter is Ownable {
-
-    EMates public emates;
-    IEthereumMix public emix;
+contract EMatesMinter is Ownable, IEMatesMinter {
+    IEMates public immutable emates;
+    IEthereumMix public immutable emix;
     uint256 public mintPrice;
 
     uint256 public limit;
 
     constructor(
-        EMates _emates,
+        IEMates _emates,
         IEthereumMix _emix,
         uint256 _mintPrice
     ) {
         emates = _emates;
         emix = _emix;
         mintPrice = _mintPrice;
+
+        emit SetMintPrice(_mintPrice);
     }
 
     function setLimit(uint256 _limit) external onlyOwner {
         limit = _limit;
+        emit SetLimit(_limit);
+    }
+
+    function setMintPrice(uint256 _price) external onlyOwner {
+        mintPrice = _price;
+        emit SetMintPrice(_price);
     }
 
     function mint() public returns (uint256 id) {
+        require(emates.totalSupply() < limit);
         id = emates.mint(msg.sender);
-        require(id < limit);
         emix.transferFrom(msg.sender, address(this), mintPrice);
     }
 
