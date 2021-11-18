@@ -34,7 +34,7 @@ contract EMatesMinter is Ownable, IEMatesMinter {
     }
 
     function mint() public returns (uint256 id) {
-        require(emates.totalSupply() + 1 < limit);
+        require(emates.totalSupply() < limit);
         id = emates.mint(msg.sender);
         emix.transferFrom(msg.sender, address(this), mintPrice);
     }
