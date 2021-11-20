@@ -1,18 +1,7 @@
-import { Wallet, BigNumberish, Contract } from "ethers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { BigNumberish, Contract } from "ethers";
 import { ethers } from "hardhat";
 import { RSV } from "./rpc";
-
-const convertToHash = (text: string) => {
-    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(text));
-};
-
-const ERC20_PERMIT_TYPEHASH = convertToHash("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-const ERC721_PERMIT_TYPEHASH = convertToHash("Permit(address spender,uint256 tokenId,uint256 nonce,uint256 deadline)");
-const ERC721_PERMIT_ALL_TYPEHASH = convertToHash("Permit(address owner,address spender,uint256 nonce,uint256 deadline)");
-
-export const sign = (digest: any, signer: Wallet): RSV => {
-    return { ...signer._signingKey().signDigest(digest) };
-};
 
 export const domainSeparator = (name: string, tokenAddress: string, version: string) => {
     return ethers.utils.keccak256(
@@ -29,32 +18,53 @@ export const domainSeparator = (name: string, tokenAddress: string, version: str
     );
 };
 
-const approvalDigest = async (token: Contract, types: string[], values: any[]) => {
-    return ethers.utils.keccak256(
-        ethers.utils.solidityPack(
-            ["bytes1", "bytes1", "bytes32", "bytes32"],
-            ["0x19", "0x01", domainSeparator(await token.name(), token.address, "1"), ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(types, values))]
-        )
-    );
-};
-
-export async function getERC20ApprovalDigest(
+export async function getERC20PermitSignature(
+    signer: SignerWithAddress,
     token: Contract,
     approve: {
-        owner: string,
-        spender: string,
-        value: BigNumberish,
+        owner: string;
+        spender: string;
+        value: BigNumberish;
     },
     nonce: BigNumberish,
-    deadline: BigNumberish,
-): Promise<string> {
-    return await approvalDigest(token,
-        ["bytes32", "address", "address", "uint256", "uint256", "uint256"],
-        [ERC20_PERMIT_TYPEHASH, approve.owner, approve.spender, approve.value, nonce, deadline],
-    );
+    deadline: BigNumberish
+): Promise<RSV> {
+    const domain = {
+        name: await token.name(),
+        version: "1",
+        chainId: 31337,
+        verifyingContract: token.address,
+    };
+
+    const types = {
+        Permit: [
+            { name: "owner", type: "address" },
+            { name: "spender", type: "address" },
+            { name: "value", type: "uint256" },
+            { name: "nonce", type: "uint256" },
+            { name: "deadline", type: "uint256" },
+        ],
+    };
+
+    const value = {
+        owner: approve.owner,
+        spender: approve.spender,
+        value: approve.value,
+        nonce: nonce,
+        deadline: deadline,
+    };
+
+    const signature = await signer._signTypedData(domain, types, value);
+
+    return {
+        r: signature.slice(0, 66),
+        s: "0x" + signature.slice(66, 130),
+        v: parseInt(signature.slice(130, 132), 16),
+    };
 }
 
-export async function getERC721ApprovalDigest(
+export async function getERC721PermitSignature(
+    signer: SignerWithAddress,
     token: Contract,
     approve: {
         spender: string;
@@ -62,11 +72,41 @@ export async function getERC721ApprovalDigest(
     },
     nonce: BigNumberish,
     deadline: BigNumberish
-): Promise<string> {
-    return await approvalDigest(token, ["bytes32", "address", "uint256", "uint256", "uint256"], [ERC721_PERMIT_TYPEHASH, approve.spender, approve.id, nonce, deadline]);
+): Promise<RSV> {
+    const domain = {
+        name: await token.name(),
+        version: "1",
+        chainId: 31337,
+        verifyingContract: token.address,
+    };
+
+    const types = {
+        Permit: [
+            { name: "spender", type: "address" },
+            { name: "tokenId", type: "uint256" },
+            { name: "nonce", type: "uint256" },
+            { name: "deadline", type: "uint256" },
+        ],
+    };
+
+    const value = {
+        spender: approve.spender,
+        tokenId: approve.id,
+        nonce: nonce,
+        deadline: deadline,
+    };
+
+    const signature = await signer._signTypedData(domain, types, value);
+
+    return {
+        r: signature.slice(0, 66),
+        s: "0x" + signature.slice(66, 130),
+        v: parseInt(signature.slice(130, 132), 16),
+    };
 }
 
-export async function getERC721ApprovalAllDigest(
+export async function getERC721PermitAllSignature(
+    signer: SignerWithAddress,
     token: Contract,
     approve: {
         owner: string;
@@ -74,6 +114,35 @@ export async function getERC721ApprovalAllDigest(
     },
     nonce: BigNumberish,
     deadline: BigNumberish
-): Promise<string> {
-    return await approvalDigest(token, ["bytes32", "address", "address", "uint256", "uint256"], [ERC721_PERMIT_ALL_TYPEHASH, approve.owner, approve.spender, nonce, deadline]);
+): Promise<RSV> {
+    const domain = {
+        name: await token.name(),
+        version: "1",
+        chainId: 31337,
+        verifyingContract: token.address,
+    };
+
+    const types = {
+        Permit: [
+            { name: "owner", type: "address" },
+            { name: "spender", type: "address" },
+            { name: "nonce", type: "uint256" },
+            { name: "deadline", type: "uint256" },
+        ],
+    };
+
+    const value = {
+        owner: approve.owner,
+        spender: approve.spender,
+        nonce: nonce,
+        deadline: deadline,
+    };
+
+    const signature = await signer._signTypedData(domain, types, value);
+
+    return {
+        r: signature.slice(0, 66),
+        s: "0x" + signature.slice(66, 130),
+        v: parseInt(signature.slice(130, 132), 16),
+    };
 }
