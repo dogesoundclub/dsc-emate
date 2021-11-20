@@ -30,6 +30,7 @@ contract EMates is Ownable, ERC721("DSC E-MATES | 4 DA NEXT LEVEL", "EMATES"), I
     address public feeReceiver;
     uint256 public fee; //out of 10000
 
+    string internal __baseURI;
     string public contractURI;
 
     constructor(address _feeReceiver, uint256 _fee) {
@@ -44,10 +45,24 @@ contract EMates is Ownable, ERC721("DSC E-MATES | 4 DA NEXT LEVEL", "EMATES"), I
 
         isMinter[msg.sender] = true;
         _setRoyaltyInfo(_feeReceiver, _fee);
+
+        __baseURI = "https://api.dogesound.club/emates/";
     }
 
-    function _baseURI() internal pure override returns (string memory) {
-        return "https://api.dogesound.club/emates/";
+    function _baseURI() internal view override returns (string memory) {
+        return __baseURI;
+    }
+
+    function setBaseURI(string calldata baseURI_) external onlyOwner {
+        __baseURI = baseURI_;
+
+        emit SetBaseURI(baseURI_);
+    }
+
+    function setContractURI(string calldata uri) external onlyOwner {
+        contractURI = uri;
+
+        emit SetContractURI(uri);
     }
 
     function DOMAIN_SEPARATOR() public view returns (bytes32) {
@@ -152,12 +167,6 @@ contract EMates is Ownable, ERC721("DSC E-MATES | 4 DA NEXT LEVEL", "EMATES"), I
         feeReceiver = _receiver;
         fee = _fee;
         emit SetRoyaltyInfo(_receiver, _fee);
-    }
-
-    function setContractURI(string calldata uri) external onlyOwner {
-        contractURI = uri;
-
-        emit SetContractURI(uri);
     }
 
     function royaltyInfo(uint256, uint256 _salePrice) external view returns (address receiver, uint256 royaltyAmount) {

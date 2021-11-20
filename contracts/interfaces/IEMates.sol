@@ -9,6 +9,7 @@ interface IEMates is IERC721, IERC721Metadata, IERC2981 {
     event SetMinter(address indexed target, bool indexed isMinter);
     event SetRoyaltyInfo(address indexed receiver, uint256 fee);
     event SetContractURI(string uri);
+    event SetBaseURI(string uri);
 
     function DOMAIN_SEPARATOR() external view returns (bytes32);
     function PERMIT_TYPEHASH() external view returns (bytes32);
