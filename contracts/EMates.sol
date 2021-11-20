@@ -32,7 +32,7 @@ contract EMates is Ownable, ERC721("DSC E-MATES | 4 DA NEXT LEVEL", "EMATES"), I
 
     string public contractURI;
 
-    constructor() {
+    constructor(address _feeReceiver, uint256 _fee) {
         _CACHED_CHAIN_ID = block.chainid;
         _HASHED_NAME = keccak256(bytes("DSC E-MATES | 4 DA NEXT LEVEL"));
         _HASHED_VERSION = keccak256(bytes("1"));
@@ -43,6 +43,7 @@ contract EMates is Ownable, ERC721("DSC E-MATES | 4 DA NEXT LEVEL", "EMATES"), I
         );
 
         isMinter[msg.sender] = true;
+        _setRoyaltyInfo(_feeReceiver, _fee);
     }
 
     function _baseURI() internal pure override returns (string memory) {
@@ -143,6 +144,10 @@ contract EMates is Ownable, ERC721("DSC E-MATES | 4 DA NEXT LEVEL", "EMATES"), I
     }
 
     function setRoyaltyInfo(address _receiver, uint256 _fee) external onlyOwner {
+        _setRoyaltyInfo(_receiver, _fee);
+    }
+
+    function _setRoyaltyInfo(address _receiver, uint256 _fee) internal {
         require(_fee < 10000, "EMATES: Invalid Fee");
         feeReceiver = _receiver;
         fee = _fee;
