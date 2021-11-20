@@ -908,7 +908,7 @@ interface IEthereumMix is IFungibleToken {
     ) external view returns (bool);
 }
 
-contract EthereumMix is Ownable, FungibleToken, IEthereumMix {
+contract TestEthereumMix is Ownable, FungibleToken, IEthereumMix {
     address public signer;
 
     mapping(address => mapping(uint256 => mapping(address => uint256[]))) public sended;
@@ -984,5 +984,9 @@ contract EthereumMix is Ownable, FungibleToken, IEthereumMix {
 
         received[msg.sender][fromChain][sender][sendId] = true;
         emit ReceiveOverHorizon(msg.sender, fromChain, sender, sendId, amount);
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
     }
 }
