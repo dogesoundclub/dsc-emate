@@ -47,6 +47,7 @@ contract EMates is Ownable, ERC721("DSC E-MATES | 4 DA NEXT LEVEL", "EMATES"), I
         _setRoyaltyInfo(_feeReceiver, _fee);
 
         __baseURI = "https://api.dogesound.club/emates/";
+        contractURI = "https://api.dogesound.club/emates";
     }
 
     function _baseURI() internal view override returns (string memory) {

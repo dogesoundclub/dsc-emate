@@ -64,7 +64,7 @@ describe("EMates", () => {
 
         expect(await eMates.DOMAIN_SEPARATOR()).to.be.equal(domainSeparator("DSC E-MATES | 4 DA NEXT LEVEL", eMates.address, "1"));
 
-        expect(await eMates.contractURI()).to.be.equal("");
+        expect(await eMates.contractURI()).to.be.equal("https://api.dogesound.club/emates");
         await expect(eMates.connect(alice).setContractURI("https://foo.bar/foobar.json")).to.be.revertedWith("Ownable: caller is not the owner");
         expect(await eMates.setContractURI("https://foo.bar/foobar.json"))
             .to.emit(eMates, "SetContractURI")
